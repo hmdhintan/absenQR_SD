@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Absensi QR - SDN Kubang Apu</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<script src="https://unpkg.com/html5-qrcode"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+:root{--blue:#174d86;--light:#edf5ff}
+body{background:#f3f7fc;color:#24364b;font-family:Arial,sans-serif}
+.sidebar{background:var(--blue);color:#fff;min-height:100vh;padding:24px 14px}
+.brand{font-weight:800;font-size:20px;line-height:1.25;margin-bottom:5px}
+.menu{display:block;width:100%;border:0;border-radius:10px;padding:12px;margin:7px 0;background:transparent;color:white;text-align:left}
+.menu:hover,.menu.active{background:#2b6eae}
+main{padding:24px}
+.page{display:none}.page.active{display:block}
+.panel,.stat{background:white;border-radius:16px;padding:20px;box-shadow:0 4px 18px #173d6410}
+.hero{position:relative;overflow:hidden;border-radius:18px;margin-bottom:20px;background:#dcecff}
+.hero img{width:100%;height:260px;object-fit:cover;display:block}
+.hero-caption{position:absolute;left:20px;bottom:18px;background:#ffffffed;color:#174d86;padding:13px 18px;border-radius:12px;max-width:85%}
+.stat .value{font-size:32px;font-weight:800}
+.stat small{color:#63758a}
+#reader{max-width:460px;margin:auto}
+.qr-card{border:1px solid #dce4ee;border-radius:12px;padding:14px;text-align:center;background:#fff;break-inside:avoid}
+.qr-card canvas,.qr-card img{margin:10px auto}
+.table thead{background:#edf4fc}
+@media(max-width:767px){.sidebar{min-height:auto}.sidebar .menu-wrap{display:grid;grid-template-columns:1fr 1fr;gap:4px}.sidebar .menu{font-size:13px;padding:9px}main{padding:14px}.hero img{height:220px}.hero-caption{left:10px;bottom:10px;padding:9px 12px}.hero-caption h2{font-size:20px}}
+@media print{.sidebar,.no-print,.hero{display:none!important}main{padding:0}.panel{box-shadow:none}}
+</style>
+</head>
+<body>
+<div class="container-fluid"><div class="row g-0">
+<aside class="col-md-2 sidebar">
+  <div class="brand">🏫 SDN KUBANG APU</div><div class="small mb-4">ABSENSI DIGITAL KELAS 5</div>
+  <div class="menu-wrap">
+    <button class="menu active" data-page="dashboard">🏠 Dashboard</button>
+    <button class="menu" data-page="scanner">📷 Scan QR</button>
+    <button class="menu" data-page="siswa">👩‍🎓 Data Siswa</button>
+    <button class="menu" data-page="rekap">📊 Rekap</button>
+    <button class="menu" data-page="kartu">🪪 Kartu QR</button>
+  </div>
+</aside>
+<main class="col-md-10">
+  <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+    <div><h3 class="fw-bold mb-1" style="color:#174d86">Absensi Digital</h3><div class="text-secondary">SDN Kubang Apu · Kelas 5 · PJOK</div></div>
+    <div class="text-md-end"><strong id="tanggalHariIni"></strong><div class="small text-secondary">Dashboard Guru</div></div>
+  </div>
+
+  <section id="dashboard" class="page active">
+    <div class="hero">
+      <img src="dashboard-ai.png" alt="Ilustrasi siswa SDN Kubang Apu">
+      <div class="hero-caption"><h2 class="fw-bold mb-1">Selamat Datang!</h2><div>Hadir tepat waktu, raih masa depan.</div></div>
+    </div>
+    <div class="row g-3 mb-3">
+      <div class="col-6 col-lg-3"><div class="stat"><small>Total Siswa</small><div class="value text-primary" id="totalSiswa">0</div></div></div>
+      <div class="col-6 col-lg-3"><div class="stat"><small>Hadir</small><div class="value text-success" id="totalHadir">0</div></div></div>
+      <div class="col-6 col-lg-3"><div class="stat"><small>Izin / Sakit</small><div class="value text-warning" id="totalIzinSakit">0</div></div></div>
+      <div class="col-6 col-lg-3"><div class="stat"><small>Alfa</small><div class="value text-danger" id="totalAlfa">0</div></div></div>
+    </div>
+    <div class="row g-3">
+      <div class="col-lg-6"><div class="panel"><h5>Grafik Kehadiran Hari Ini</h5><canvas id="grafik"></canvas></div></div>
+      <div class="col-lg-6"><div class="panel"><h5>Absensi Terbaru</h5><div class="table-responsive"><table class="table table-sm"><thead><tr><th>Waktu</th><th>Nama</th><th>Status</th></tr></thead><tbody id="terbaru"></tbody></table></div></div></div>
+    </div>
+  </section>
+
+  <section id="scanner" class="page">
+    <div class="panel"><h4>Scan QR Code Siswa</h4><p class="text-secondary">Arahkan kamera HP guru ke QR Code pada kartu siswa. QR berisi NISN.</p>
+      <div id="reader"></div>
+      <div class="d-flex gap-2 justify-content-center my-3 no-print">
+        <button class="btn btn-primary" id="btnMulai">Mulai Kamera</button>
+        <button class="btn btn-outline-danger" id="btnStop">Matikan Kamera</button>
+      </div>
+      <div id="scanResult" class="alert alert-info">Kamera belum dijalankan.</div>
+    </div>
+  </section>
+
+  <section id="siswa" class="page">
+    <div class="panel"><div class="d-flex flex-wrap justify-content-between gap-2 align-items-center"><h4>Data Siswa Kelas 5</h4><button class="btn btn-outline-primary btn-sm no-print" id="btnRefreshSiswa">Muat Ulang</button></div>
+      <input id="cariSiswa" class="form-control my-3" placeholder="Cari nama atau NISN...">
+      <div class="table-responsive"><table class="table table-striped"><thead><tr><th>No</th><th>Nama Siswa</th><th>NISN</th><th>Kelas</th></tr></thead><tbody id="tabelSiswa"></tbody></table></div>
+    </div>
+  </section>
+
+  <section id="rekap" class="page">
+    <div class="panel"><h4>Rekap Absensi</h4>
+      <div class="row g-2 my-2">
+        <div class="col-md-4"><label class="form-label">Tanggal</label><input type="date" id="filterTanggal" class="form-control"></div>
+        <div class="col-md-4"><label class="form-label">Input status siswa</label><select id="pilihSiswa" class="form-select"><option value="">Pilih siswa</option></select></div>
+        <div class="col-md-4"><label class="form-label">Status</label><select id="pilihStatus" class="form-select"><option value="">Pilih status</option><option>Hadir</option><option>Izin</option><option>Sakit</option><option>Alfa</option></select></div>
+      </div>
+      <div class="d-flex flex-wrap gap-2 mb-3 no-print"><button class="btn btn-primary" id="btnSimpanManual">Simpan Status</button><button class="btn btn-outline-secondary" onclick="window.print()">Cetak Rekap</button></div>
+      <div class="table-responsive"><table class="table table-bordered"><thead><tr><th>No</th><th>Nama</th><th>NISN</th><th>Kelas</th><th>Status</th><th>Waktu</th></tr></thead><tbody id="tabelRekap"></tbody></table></div>
+    </div>
+  </section>
+
+  <section id="kartu" class="page">
+    <div class="panel"><div class="d-flex justify-content-between align-items-center flex-wrap gap-2"><h4>Kartu QR Siswa</h4><button class="btn btn-primary no-print" onclick="window.print()">Cetak Kartu</button></div><p class="text-secondary">Cetak dan bagikan kartu QR kepada masing-masing siswa.</p><div class="row g-3" id="daftarQR"></div></div>
+  </section>
+  <footer class="text-center text-secondary small py-4">SDN Kubang Apu · Absensi Digital Kelas 5</footer>
+</main></div></div>
+
+<script>
+// Tempel URL Web App Google Apps Script setelah deployment.
+const API_URL = "https://script.google.com/macros/s/AKfycbyqiLgyISKenW6CzJc4UCD29U81Zxf5HbRpDRO6Hyn6gCuA91lb6adg8THBoRKAOF9V/exec";
+let siswaList = [], absensiList = [], scanner = null, cameraRunning = false, chart = null, busy = false;
+
+const today = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+};
+document.getElementById("tanggalHariIni").textContent = new Date().toLocaleDateString("id-ID",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+document.getElementById("filterTanggal").value = today();
+
+document.querySelectorAll(".menu").forEach(btn => btn.addEventListener("click", async () => {
+  document.querySelectorAll(".menu").forEach(x=>x.classList.remove("active"));
+  document.querySelectorAll(".page").forEach(x=>x.classList.remove("active"));
+  btn.classList.add("active");
+  document.getElementById(btn.dataset.page).classList.add("active");
+  if(btn.dataset.page !== "scanner") await stopScanner();
+}));
+
+function safe(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+
+function loadData(){
+  if(API_URL.includes("TEMPEL_URL")) { setResult("Masukkan URL Apps Script pada variabel API_URL.","warning"); return; }
+  const cb = "absensiCallback";
+  const old = document.getElementById("apiScript"); if(old) old.remove();
+  window[cb] = data => {
+    delete window[cb];
+    if(!data || !data.success){setResult("Gagal membaca data Google Sheets.","danger");return;}
+    siswaList = data.siswa || []; absensiList = data.absensi || [];
+    renderAll();
+  };
+  const script = document.createElement("script");
+  script.id = "apiScript";
+  script.onerror = () => {delete window[cb];setResult("Tidak dapat terhubung ke Google Sheets. Periksa URL dan deployment Apps Script.","danger");};
+  script.src = `${API_URL}?action=data&callback=${cb}&t=${Date.now()}`;
+  document.body.appendChild(script);
+}
+function renderAll(){renderStudents();renderRekap();renderQR();renderDashboard();renderStudentOptions();}
+function todayRecords(){return absensiList.filter(a=>a.tanggal===today() && a.mapel==="PJOK");}
+function renderDashboard(){
+  const records=todayRecords(), count=s=>records.filter(a=>a.status===s).length;
+  document.getElementById("totalSiswa").textContent=siswaList.length;
+  document.getElementById("totalHadir").textContent=count("Hadir");
+  document.getElementById("totalIzinSakit").textContent=count("Izin")+count("Sakit");
+  document.getElementById("totalAlfa").textContent=count("Alfa");
+  document.getElementById("terbaru").innerHTML=records.slice().reverse().slice(0,6).map(a=>`<tr><td>${safe(a.waktu)}</td><td>${safe(a.nama)}</td><td>${safe(a.status)}</td></tr>`).join("") || '<tr><td colspan="3" class="text-center text-secondary">Belum ada absensi</td></tr>';
+  if(chart) chart.destroy();
+  chart=new Chart(document.getElementById("grafik"),{type:"doughnut",data:{labels:["Hadir","Izin","Sakit","Alfa"],datasets:[{data:[count("Hadir"),count("Izin"),count("Sakit"),count("Alfa")],backgroundColor:["#198754","#0d6efd","#ffc107","#dc3545"]}]},options:{responsive:true}});
+}
+function renderStudents(){
+  const q=document.getElementById("cariSiswa").value.toLowerCase();
+  const list=siswaList.filter(s=>s.nama.toLowerCase().includes(q)||s.nisn.includes(q));
+  document.getElementById("tabelSiswa").innerHTML=list.map((s,i)=>`<tr><td>${i+1}</td><td>${safe(s.nama)}</td><td>${safe(s.nisn)}</td><td>${safe(s.kelas)}</td></tr>`).join("") || '<tr><td colspan="4" class="text-center">Data siswa belum tersedia</td></tr>';
+}
+function renderStudentOptions(){
+  document.getElementById("pilihSiswa").innerHTML='<option value="">Pilih siswa</option>'+siswaList.map(s=>`<option value="${safe(s.nisn)}">${safe(s.nama)} (${safe(s.kelas)})</option>`).join("");
+}
+function renderRekap(){
+  const date=document.getElementById("filterTanggal").value;
+  const list=absensiList.filter(a=>a.tanggal===date&&a.mapel==="PJOK");
+  document.getElementById("tabelRekap").innerHTML=list.map((a,i)=>`<tr><td>${i+1}</td><td>${safe(a.nama)}</td><td>${safe(a.nisn)}</td><td>${safe(a.kelas)}</td><td>${safe(a.status)}</td><td>${safe(a.waktu)}</td></tr>`).join("") || '<tr><td colspan="6" class="text-center">Belum ada data absensi</td></tr>';
+}
+function renderQR(){
+  const root=document.getElementById("daftarQR"); root.innerHTML="";
+  siswaList.forEach(s=>{
+    const col=document.createElement("div");col.className="col-6 col-md-4 col-lg-3";
+    col.innerHTML='<div class="qr-card"><b>SDN KUBANG APU</b><div class="student-name mt-2"></div><div class="student-nisn small"></div><div class="qr"></div><small>KELAS 5</small></div>';
+    col.querySelector(".student-name").textContent=s.nama;col.querySelector(".student-nisn").textContent=s.nisn;root.appendChild(col);
+    new QRCode(col.querySelector(".qr"),{text:s.nisn,width:120,height:120,correctLevel:QRCode.CorrectLevel.M});
+  });
+}
+function setResult(msg,type="info"){const el=document.getElementById("scanResult");el.className="alert alert-"+type;el.textContent=msg;}
+
+async function startScanner(){
+  if(cameraRunning)return;
+  if(!window.isSecureContext){setResult("Kamera memerlukan HTTPS. Buka website melalui alamat GitHub Pages.","warning");return;}
+  try{
+    if(!scanner) scanner=new Html5Qrcode("reader");
+    await scanner.start({facingMode:"environment"},{fps:10,qrbox:{width:230,height:230}},onScan,()=>{});
+    cameraRunning=true;setResult("Kamera aktif. Arahkan ke QR Code siswa.","success");
+  }catch(e){setResult("Kamera gagal dibuka. Izinkan akses kamera di pengaturan Chrome dan pastikan menggunakan HTTPS.","danger");}
+}
+async function stopScanner(){if(scanner&&cameraRunning){try{await scanner.stop();}catch(e){}cameraRunning=false;}}
+async function onScan(decoded){
+  if(busy)return;busy=true;
+  const student=siswaList.find(s=>s.nisn===String(decoded).trim());
+  if(!student){setResult("NISN tidak ditemukan pada daftar siswa.","danger");busy=false;return;}
+  const existing=todayRecords().find(a=>a.nisn===student.nisn);
+  if(existing){setResult(`${student.nama} sudah tercatat: ${existing.status}.`,"warning");busy=false;return;}
+  setResult(`QR terbaca: ${student.nama}. Menyimpan absensi...`,"info");
+  const ok=await sendAttendance(student.nisn,"Hadir",today());
+  if(ok){setResult(`Berhasil! ${student.nama} tercatat HADIR.`,"success");loadData();}
+  else setResult("Pengiriman gagal. Periksa koneksi dan Apps Script.","danger");
+  setTimeout(()=>{busy=false;},1800);
+}
+async function sendAttendance(nisn,status,date){
+  try{
+    const form=new URLSearchParams({nisn,status,tanggal:date});
+    const response=await fetch(API_URL,{method:"POST",body:form});
+    const text=await response.text();
+    if(!text.startsWith("OK"))throw new Error(text);
+    return true;
+  }catch(e){console.error(e);return false;}
+}
+document.getElementById("btnMulai").addEventListener("click",startScanner);
+document.getElementById("btnStop").addEventListener("click",stopScanner);
+document.getElementById("cariSiswa").addEventListener("input",renderStudents);
+document.getElementById("btnRefreshSiswa").addEventListener("click",loadData);
+document.getElementById("filterTanggal").addEventListener("change",renderRekap);
+document.getElementById("btnSimpanManual").addEventListener("click",async()=>{
+  const nisn=document.getElementById("pilihSiswa").value;
+  const status=document.getElementById("pilihStatus").value;
+  const date=document.getElementById("filterTanggal").value;
+  if(!nisn||!status||!date){alert("Pilih siswa, tanggal, dan status.");return;}
+  if(date!==today()){alert("Untuk keamanan, input manual versi ini hanya menerima tanggal hari ini.");return;}
+  const ok=await sendAttendance(nisn,status,date);
+  if(ok){alert("Status absensi berhasil disimpan.");loadData();}
+  else alert("Gagal menyimpan. Periksa koneksi Apps Script.");
+});
+loadData();
+</script>
+</body>
+</html>
